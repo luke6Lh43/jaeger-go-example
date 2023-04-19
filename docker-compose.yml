@@ -7,7 +7,7 @@ services:
     environment:
       - OUTBOUND_HOST_PORT=service-b:8082
       - JAEGER_SERVICE_NAME=service-a
-      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_AGENT_HOST=otelcol
       - JAEGER_SAMPLER_TYPE=const
       - JAEGER_SAMPLER_PARAM=1
       - JAEGER_REPORTER_LOG_SPANS=true
@@ -15,11 +15,45 @@ services:
     image: service-b
     environment:
       - JAEGER_SERVICE_NAME=service-b
-      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_AGENT_HOST=otelcol
       - JAEGER_SAMPLER_TYPE=const
       - JAEGER_SAMPLER_PARAM=1
       - JAEGER_REPORTER_LOG_SPANS=true
   jaeger:
     image: jaegertracing/all-in-one
+    container_name: jaeger
+    command:
+      - "--memory.max-traces"
+      - "10000"
+      - "--query.base-path"
+      - "/jaeger/ui"
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+    restart: unless-stopped
     ports:
-      - "16686:16686"
+      - "16686:16686"                   # Jaeger UI
+      - "4317"                           # OTLP gRPC default port
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+  otelcol:
+    image: otel/opentelemetry-collector-contrib:0.75.0
+    container_name: otel-col
+    deploy:
+      resources:
+        limits:
+          memory: 125M
+    restart: unless-stopped
+    command: [ "--feature-gates=service.connectors", "--config=/etc/otelcol-config.yml"]
+    volumes:
+      - ./otelcol-config.yml:/etc/otelcol-config.yml
+    ports:
+      # - "4317"          # OTLP over gRPC receiver
+      - "4318:4318"     # OTLP over HTTP receiver
+      - "9464"          # Prometheus exporter
+      - "8888"          # metrics endpoint
+      - "14250:14250"
+      - "6831"
+    depends_on:
+      - jaeger

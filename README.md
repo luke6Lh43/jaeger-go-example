@@ -1,3 +1,9 @@
+This is a slightly changed original example with following flow:
+
+Go App -- (Thrift Compact) --> OTel Collector -- (OTLP) --> Jaeger
+
+////////
+
 # Jaeger Go Instrumentation Example
 Two simple Go microservices where `service-a` calls `service-b`. Both services expose a `/ping` endpoint, instrumented with Jaeger+OpenTracing.
 
